@@ -46,7 +46,7 @@
 #endif
 
 /** Helper macro for stringification. */
-#define FSW_EFI_STRINGIFY(x) L#x
+#define FSW_EFI_STRINGIFY(x) #x
 /** Expands to the EFI driver name given the file system type name. */
 #define FSW_EFI_DRIVER_NAME(t) L"Fsw " FSW_EFI_STRINGIFY(t) L" File System Driver"
 
@@ -149,8 +149,6 @@ struct fsw_host_table   fsw_efi_host_table = {
 extern struct fsw_fstype_table   FSW_FSTYPE_TABLE_NAME(FSTYPE);
 
 
-EFI_DRIVER_ENTRY_POINT(fsw_efi_main)
-
 /**
  * Image entry point. Installs the Driver Binding and Component Name protocols
  * on the image's handle. Actually mounting a file system is initiated through
@@ -162,14 +160,12 @@ EFI_STATUS EFIAPI fsw_efi_main(IN EFI_HANDLE         ImageHandle,
 {
     EFI_STATUS  Status;
     
-    InitializeLib(ImageHandle, SystemTable);
-    
     // complete Driver Binding protocol instance
     fsw_efi_DriverBinding_table.ImageHandle          = ImageHandle;
     fsw_efi_DriverBinding_table.DriverBindingHandle  = ImageHandle;
     // install Driver Binding protocol
     Status = BS->InstallProtocolInterface(&fsw_efi_DriverBinding_table.DriverBindingHandle,
-                                          &DriverBindingProtocol,
+                                          &gEfiDriverBindingProtocolGuid,
                                           EFI_NATIVE_INTERFACE,
                                           &fsw_efi_DriverBinding_table);
     if (EFI_ERROR (Status)) {
@@ -178,7 +174,7 @@ EFI_STATUS EFIAPI fsw_efi_main(IN EFI_HANDLE         ImageHandle,
     
     // install Component Name protocol
     Status = BS->InstallProtocolInterface(&fsw_efi_DriverBinding_table.DriverBindingHandle,
-                                          &ComponentNameProtocol,
+                                          &gEfiComponentNameProtocolGuid,
                                           EFI_NATIVE_INTERFACE,
                                           &fsw_efi_ComponentName_table);
     if (EFI_ERROR (Status)) {
@@ -206,7 +202,7 @@ EFI_STATUS EFIAPI fsw_efi_DriverBinding_Supported(IN EFI_DRIVER_BINDING_PROTOCOL
     
     // first, open DiskIO
     Status = BS->OpenProtocol(ControllerHandle,
-                              &DiskIoProtocol,
+                              &gEfiDiskIoProtocolGuid,
                               (VOID **) &DiskIo,
                               This->DriverBindingHandle,
                               ControllerHandle,
@@ -216,13 +212,13 @@ EFI_STATUS EFIAPI fsw_efi_DriverBinding_Supported(IN EFI_DRIVER_BINDING_PROTOCOL
     
     // we were just checking, close it again
     BS->CloseProtocol(ControllerHandle,
-                      &DiskIoProtocol,
+                      &gEfiDiskIoProtocolGuid,
                       This->DriverBindingHandle,
                       ControllerHandle);
     
     // next, check BlockIO without actually opening it
     Status = BS->OpenProtocol(ControllerHandle,
-                              &BlockIoProtocol,
+                              &gEfiBlockIoProtocolGuid,
                               NULL,
                               This->DriverBindingHandle,
                               ControllerHandle,
@@ -258,7 +254,7 @@ EFI_STATUS EFIAPI fsw_efi_DriverBinding_Start(IN EFI_DRIVER_BINDING_PROTOCOL  *T
     
     // open consumed protocols
     Status = BS->OpenProtocol(ControllerHandle,
-                              &BlockIoProtocol,
+                              &gEfiBlockIoProtocolGuid,
                               (VOID **) &BlockIo,
                               This->DriverBindingHandle,
                               ControllerHandle,
@@ -269,7 +265,7 @@ EFI_STATUS EFIAPI fsw_efi_DriverBinding_Start(IN EFI_DRIVER_BINDING_PROTOCOL  *T
     }
     
     Status = BS->OpenProtocol(ControllerHandle,
-                              &DiskIoProtocol,
+                              &gEfiDiskIoProtocolGuid,
                               (VOID **) &DiskIo,
                               This->DriverBindingHandle,
                               ControllerHandle,
@@ -297,7 +293,7 @@ EFI_STATUS EFIAPI fsw_efi_DriverBinding_Start(IN EFI_DRIVER_BINDING_PROTOCOL  *T
         Volume->FileSystem.Revision     = EFI_FILE_IO_INTERFACE_REVISION;
         Volume->FileSystem.OpenVolume   = fsw_efi_FileSystem_OpenVolume;
         Status = BS->InstallMultipleProtocolInterfaces(&ControllerHandle,
-                                                       &FileSystemProtocol, &Volume->FileSystem,
+                                                       &gEfiSimpleFileSystemProtocolGuid, &Volume->FileSystem,
                                                        NULL);
         if (EFI_ERROR(Status))
             Print(L"Fsw ERROR: InstallMultipleProtocolInterfaces returned %x\n", Status);
@@ -310,7 +306,7 @@ EFI_STATUS EFIAPI fsw_efi_DriverBinding_Start(IN EFI_DRIVER_BINDING_PROTOCOL  *T
         FreePool(Volume);
         
         BS->CloseProtocol(ControllerHandle,
-                          &DiskIoProtocol,
+                          &gEfiDiskIoProtocolGuid,
                           This->DriverBindingHandle,
                           ControllerHandle);
     }
@@ -343,7 +339,7 @@ EFI_STATUS EFIAPI fsw_efi_DriverBinding_Stop(IN  EFI_DRIVER_BINDING_PROTOCOL  *T
     
     // get the installed SimpleFileSystem interface
     Status = BS->OpenProtocol(ControllerHandle,
-                              &FileSystemProtocol,
+                              &gEfiSimpleFileSystemProtocolGuid,
                               (VOID **) &FileSystem,
                               This->DriverBindingHandle,
                               ControllerHandle,
@@ -356,7 +352,7 @@ EFI_STATUS EFIAPI fsw_efi_DriverBinding_Stop(IN  EFI_DRIVER_BINDING_PROTOCOL  *T
     
     // uninstall Simple File System protocol
     Status = BS->UninstallMultipleProtocolInterfaces(ControllerHandle,
-                                                     &FileSystemProtocol, &Volume->FileSystem,
+                                                     &gEfiSimpleFileSystemProtocolGuid, &Volume->FileSystem,
                                                      NULL);
     if (EFI_ERROR(Status)) {
         Print(L"Fsw ERROR: UninstallMultipleProtocolInterfaces returned %x\n", Status);
@@ -373,7 +369,7 @@ EFI_STATUS EFIAPI fsw_efi_DriverBinding_Stop(IN  EFI_DRIVER_BINDING_PROTOCOL  *T
     
     // close the consumed protocols
     Status = BS->CloseProtocol(ControllerHandle,
-                               &DiskIoProtocol,
+                               &gEfiDiskIoProtocolGuid,
                                This->DriverBindingHandle,
                                ControllerHandle);
     
@@ -884,14 +880,14 @@ EFI_STATUS fsw_efi_dnode_getinfo(IN FSW_FILE_DATA *File,
     UINTN               RequiredSize;
     struct fsw_volume_stat vsb;
     
-    if (CompareGuid(InformationType, &GenericFileInfo) == 0) {
+    if (CompareGuid(InformationType, &gEfiFileInfoGuid)) {
 #if DEBUG_LEVEL
         Print(L"fsw_efi_dnode_getinfo: FILE_INFO\n");
 #endif
         
         Status = fsw_efi_dnode_fill_FileInfo(Volume, File->shand.dnode, BufferSize, Buffer);
         
-    } else if (CompareGuid(InformationType, &FileSystemInfo) == 0) {
+    } else if (CompareGuid(InformationType, &gEfiFileSystemInfoGuid)) {
 #if DEBUG_LEVEL
         Print(L"fsw_efi_dnode_getinfo: FILE_SYSTEM_INFO\n");
 #endif
@@ -922,7 +918,7 @@ EFI_STATUS fsw_efi_dnode_getinfo(IN FSW_FILE_DATA *File,
         *BufferSize = RequiredSize;
         Status = EFI_SUCCESS;
         
-    } else if (CompareGuid(InformationType, &FileSystemVolumeLabelInfo) == 0) {
+    } else if (CompareGuid(InformationType, &gEfiFileSystemVolumeLabelInfoIdGuid)) {
 #if DEBUG_LEVEL
         Print(L"fsw_efi_dnode_getinfo: FILE_SYSTEM_VOLUME_LABEL\n");
 #endif

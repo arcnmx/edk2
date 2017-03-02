@@ -39,8 +39,7 @@
 #define _FSW_EFI_BASE_H_
 
 
-#include <efi.h>
-#include <efilib.h>
+#include "fsw_efi_edk2_base.h"
 
 #define FSW_LITTLE_ENDIAN (1)
 
