@@ -381,6 +381,11 @@ Returns:
   }
 
   //
+  // Initialize AppleSupport library
+  //
+  InitializeAppleSupport (gImageHandle, gST);
+
+  //
   // Prevent further changes to LockBoxes or SMRAM.
   //
   Handle = NULL;
@@ -1474,6 +1479,11 @@ Routine Description:
 
   RemoveStaleFvFileOptions ();
   SetBootOrderFromQemu ();
+
+  //
+  // Locate and launch Apple's OS X bootloader
+  //
+  BdsBootApple ();
 }
 
 /**
